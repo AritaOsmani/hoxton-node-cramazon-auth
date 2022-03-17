@@ -79,7 +79,7 @@ app.get('/items', async (req, res) => {
     const items = await prisma.items.findMany()
     res.status(200).send(items)
 })
-
+//comment
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`)
 })
