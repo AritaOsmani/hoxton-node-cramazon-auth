@@ -43,7 +43,7 @@ app.post('/signup', async (req, res) => {
 app.post('/login', async (req, res) => {
     const { email, password } = req.body
     try {
-        const user = await prisma.users.findUnique({ where: { email } })
+        const user = await prisma.users.findUnique({ where: { email }, include: { basket: true } })
         if (!user) return res.status(404).send({ error: 'User not found!' })
         const passwordMatches = bcrypt.compareSync(password, user.password)
         if (passwordMatches) {
@@ -79,7 +79,42 @@ app.get('/items', async (req, res) => {
     const items = await prisma.items.findMany()
     res.status(200).send(items)
 })
-//comment
+
+app.post('/addToBasket', async (req, res) => {
+    const token = req.headers.authorization
+    const { title, quantity } = req.body
+    try {
+        const user = await getUserFromToken(token)
+        const itemFound = await prisma.items.findUnique({ where: { title } })
+
+        if (user && itemFound) {
+            const getCurrentQuantity = itemFound.stock
+            if (quantity > getCurrentQuantity || quantity < 0) {
+                res.status(400).send({ error: 'Not so many items available or invalid quantity input' })
+            } else {
+                const itemAlreadyInBasket = await prisma.baskets.findFirst({ where: { itemsId: itemFound.id, usersId: user.id } })
+                if (itemAlreadyInBasket) return res.status(400).send({ error: 'Already in basket!' })
+                const newItemAdded = await prisma.baskets.create({
+                    data: {
+                        itemsId: itemFound.id,
+                        quantity: quantity,
+                        usersId: user.id
+                    }
+                })
+                res.status(200).send(newItemAdded)
+            }
+        } else {
+            res.status(404).send({ err: 'User or item not found!' })
+        }
+
+
+    } catch (err) {
+        //@ts-ignore
+        res.status(400).send({ error: err.message })
+    }
+})
+
+
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`)
 })
