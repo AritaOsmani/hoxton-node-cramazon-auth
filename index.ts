@@ -114,6 +114,46 @@ app.post('/addToBasket', async (req, res) => {
     }
 })
 
+app.post('/order', async (req, res) => {
+    const token = req.headers.authorization
+    const { basket } = req.body
+
+    try {
+        const user = await getUserFromToken(token)
+        if (user) {
+
+
+            for (const item of basket) {
+                if (item.usersId !== user.id) {
+                    res.send({ err: 'This basket does not belong to this user!' })
+                    break
+                }
+                await prisma.orders.create({ data: item })
+                //@ts-ignore
+                const itemMatch = await prisma.items.findUnique({ where: { id: item.itemsId } })
+                //@ts-ignore
+                const newQuantity = itemMatch.stock - item.quantity
+                const updated = await prisma.items.update({
+                    where: {
+                        //@ts-ignore
+                        id: itemMatch.id,
+                    },
+                    data: {
+                        stock: newQuantity
+                    }
+                })
+            }
+            const deleteBasket = await prisma.baskets.deleteMany({ where: { usersId: user.id } })
+
+            const orders = await prisma.orders.findMany({ where: { usersId: user.id } })
+            res.send(orders)
+        }
+
+    } catch (err) {
+        //@ts-ignore
+        res.status(400).send({ error: err.message })
+    }
+})
 
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`)
