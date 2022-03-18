@@ -43,7 +43,7 @@ app.post('/signup', async (req, res) => {
 app.post('/login', async (req, res) => {
     const { email, password } = req.body
     try {
-        const user = await prisma.users.findUnique({ where: { email }, include: { basket: true } })
+        const user = await prisma.users.findUnique({ where: { email } })
         if (!user) return res.status(404).send({ error: 'User not found!' })
         const passwordMatches = bcrypt.compareSync(password, user.password)
         if (passwordMatches) {
@@ -147,6 +147,23 @@ app.post('/order', async (req, res) => {
 
             const orders = await prisma.orders.findMany({ where: { usersId: user.id } })
             res.send(orders)
+        }
+
+    } catch (err) {
+        //@ts-ignore
+        res.status(400).send({ error: err.message })
+    }
+})
+
+app.get('/basket', async (req, res) => {
+    const token = req.headers.authorization;
+    try {
+        const user = await getUserFromToken(token)
+        if (user) {
+            const basket = await prisma.baskets.findMany({ where: { usersId: user.id }, include: { item: true } })
+            res.status(200).send(basket)
+        } else {
+            throw Error('User not found with this token! ')
         }
 
     } catch (err) {
